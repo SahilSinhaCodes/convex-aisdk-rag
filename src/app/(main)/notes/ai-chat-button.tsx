@@ -34,39 +34,36 @@ interface AIChatBoxProps {
   onClose: () => void;
 }
 
-const initialMessages: UIMessage[] = [
-  {
-    id: "welcome-message",
-    role: "assistant",
-    parts: [
-      {
-        type: "text",
-        text: "I'm your notes assistant. I can find and summarize any information that you saved.",
-      },
-    ],
-  },
-];
+function getInitialMessages(): UIMessage[] {
+  return [
+    {
+      id: "welcome-message",
+      role: "assistant",
+      parts: [
+        {
+          type: "text",
+          text: "I'm your notes assistant. I can find and summarize any information that you saved.",
+        },
+      ],
+    },
+  ];
+}
 
 function AIChatBox({ open, onClose }: AIChatBoxProps) {
   const [input, setInput] = useState("");
-
   const [isExpanded, setIsExpanded] = useState(false);
-
   const token = useAuthToken();
 
   const { messages, sendMessage, setMessages, status } = useChat({
     transport: new DefaultChatTransport({
       api: `${convexSiteUrl}/api/chat`,
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
     }),
-    messages: initialMessages,
+    messages: getInitialMessages(),
     maxSteps: 3,
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
   const isProcessing = status === "submitted" || status === "streaming";
 
   useEffect(() => {
@@ -91,7 +88,7 @@ function AIChatBox({ open, onClose }: AIChatBoxProps) {
 
   if (!open) return null;
 
-  const lastMessageIsUser = messages[messages.length - 1].role === "user";
+  const lastMessageIsUser = messages[messages.length - 1]?.role === "user";
 
   return (
     <div
@@ -120,7 +117,7 @@ function AIChatBox({ open, onClose }: AIChatBoxProps) {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setMessages(initialMessages)}
+            onClick={() => setMessages(getInitialMessages())}
             className="text-primary-foreground hover:bg-primary/90 h-8 w-8"
             title="Clear chat"
             disabled={isProcessing}
@@ -197,11 +194,16 @@ function ChatMessage({ message }: ChatMessageProps) {
             AI Assistant
           </div>
         )}
+        {/* Fixed: Duplicated rendering row removed here */}
         {currentStep?.type === "text" && (
           <Markdown>{currentStep.text}</Markdown>
         )}
-        {currentStep.type === "tool-invocation" && (
-          <div className="italic animate-pulse">Searching notes...</div>
+        {currentStep?.type?.startsWith("tool-") && (
+          <div className="italic animate-pulse">
+            {currentStep.state === "output-available"
+              ? "Got results, thinking..."
+              : "Searching notes..."}
+          </div>
         )}
       </div>
     </div>

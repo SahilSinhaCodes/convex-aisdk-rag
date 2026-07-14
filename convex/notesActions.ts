@@ -12,7 +12,6 @@ export const createNote = action({
     title: v.string(),
     body: v.string(),
   },
-  returns: v.id("notes"),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) {
@@ -52,8 +51,9 @@ export const findRelevantNotes = internalAction({
 
     console.log("vector search results:", results);
 
+    // FIX: Lowered the threshold to 0.01 to allow Gemini embeddings to pass through safely
     const resultsAboveThreshold = results.filter(
-      (result) => result._score > 0.3
+      (result) => result._score > 0.01
     );
 
     const embeddingIds = resultsAboveThreshold.map((result) => result._id);
