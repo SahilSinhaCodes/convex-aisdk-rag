@@ -1,8 +1,7 @@
 import { groq } from "@ai-sdk/groq";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { convertToModelMessages, streamText, tool, UIMessage } from "ai";
+import { convertToModelMessages, streamText, UIMessage } from "ai";
 import { httpRouter } from "convex/server";
-import { z } from "zod";
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
@@ -22,72 +21,59 @@ http.route({
 
     const { messages }: { messages: UIMessage[] } = await req.json();
     const lastMessages = messages.slice(-10);
-
     const modelMessages = convertToModelMessages(lastMessages);
 
-    // Deep clean history so Groq never rejects a turn due to a previous tool error state
-    const sanitizedMessages = modelMessages.map((msg) => {
-      if (msg.role === "assistant" && Array.isArray(msg.content)) {
-        return {
-          ...msg,
-          content: msg.content.map((part) => {
-            if (part.type === "tool-call") {
-              const hasValidInput =
-                part.input &&
-                typeof part.input === "object" &&
-                Object.keys(part.input).length > 0;
-              return {
-                ...part,
-                input: hasValidInput ? part.input : { query: "" },
-              };
-            }
-            return part;
-          }),
-        };
+    // 1. DIRECT EXTRACTION: Grab what the user just typed
+    let queryText = "search";
+    const lastUserMessage = messages.filter((m) => m.role === "user").pop();
+
+    if (lastUserMessage) {
+      if (Array.isArray(lastUserMessage.parts)) {
+        const textPart = lastUserMessage.parts.find((p: any) => p.type === "text");
+        if (textPart) queryText = textPart.text;
+      } else if (typeof lastUserMessage.content === "string") {
+        queryText = lastUserMessage.content;
       }
-      return msg;
-    });
+    }
 
+    console.log(`\n🔍 DIRECT PIPELINE SEARCH | Query: "${queryText}"`);
+
+    // 2. PRE-RETRIEVAL: Search the database BEFORE calling the LLM
+    let notesContext = "No relevant notes found.";
+    try {
+      const relevantNotes = await ctx.runAction(
+        internal.notesActions.findRelevantNotes,
+        { query: queryText, userId }
+      );
+      console.log(`✅ FOUND ${relevantNotes.length} NOTES`);
+
+      if (relevantNotes.length > 0) {
+        notesContext = relevantNotes
+          .map((n) => `Title: ${n.title}\nContent: ${n.body}`)
+          .join("\n\n---\n\n");
+      }
+    } catch (err) {
+      console.error("❌ VECTOR LOOKUP CRASHED:", err);
+      notesContext = "Error: Could not search database.";
+    }
+
+    // 3. ONE-SHOT STREAM: Feed the database results directly into the System Prompt
     const result = streamText({
-      model: groq("llama-3.1-8b-instant"),
+      model: groq("openai/gpt-oss-120b"),
       system: `
-          You are a helpful assistant that can search through the user's notes.
-          Use the information from the notes to answer questions and provide insights.
-          If the requested information is not available, respond with "Sorry, I can't find that information in your notes".
-          You can use markdown formatting like links, bullet points, numbered lists, and bold text.
+          You are a helpful assistant that summarizes and answers questions based on the user's saved notes.
 
-          CRITICAL: When providing links to relevant notes, replace "<note-id>" with the actual unique id string returned by the tool execution.
-          Use this exact relative URL structure: '/notes?noteId=ACTUAL_ID_HERE'. For example, if the id is "123", the link markdown must look exactly like: [Note Title](/notes?noteId=123).
+          CRITICAL RULES:
+          1. Base your answer ONLY on the "RETRIEVED NOTES" below.
+          2. If the answer is not in the notes, say "Sorry, I can't find that information in your notes".
+          3. Keep your responses concise and to the point.
 
-          Keep your responses concise and to the point.
-`,
-      messages: sanitizedMessages,
-      tools: {
-        findRelevantNotes: tool({
-          description:
-            "Retrieve relevant notes from the database based on the user's query. Only call this when the user is asking about specific note content — not for greetings or general chat.",
-          parameters: z.object({
-            query: z.string().min(1).describe("The user's search query, must not be empty"),
-          }),
-          execute: async ({ query }) => {
-            if (!query || !query.trim()) {
-              console.log("findRelevantNotes called with empty query, skipping");
-              return [];
-            }
-            console.log("findRelevantNotes query:", query);
-            const relevantNotes = await ctx.runAction(
-              internal.notesActions.findRelevantNotes,
-              { query, userId }
-            );
-            return relevantNotes.map((note) => ({
-              id: note._id,
-              title: note.title,
-              body: note.body,
-              creationTime: note._creationTime,
-            }));
-          },
-        }),
-      },
+          --- RETRIEVED NOTES ---
+          ${notesContext}
+          -----------------------
+      `,
+      messages: modelMessages,
+      // NO TOOLS! We bypass the Vercel/Groq array serialization crash entirely.
       onError(error) {
         console.error("streamText error:", error);
       },

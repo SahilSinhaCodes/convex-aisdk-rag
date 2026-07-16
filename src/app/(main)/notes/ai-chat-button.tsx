@@ -60,7 +60,7 @@ function AIChatBox({ open, onClose }: AIChatBoxProps) {
       headers: { Authorization: `Bearer ${token}` },
     }),
     messages: getInitialMessages(),
-    maxSteps: 3,
+//    maxSteps: 3,
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);

@@ -1,5 +1,6 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
+import { Doc } from "./_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
@@ -93,12 +94,12 @@ export const fetchNotesByEmbeddingIds = internalQuery({
   args: {
     embeddingIds: v.array(v.id("noteEmbeddings")),
   },
-  handler: async (ctx, args) => {
-    const embeddings = [];
+  handler: async (ctx, args): Promise<Array<Doc<"notes">>> => {
+    const embeddings: Array<Doc<"noteEmbeddings">> = [];
     for (const id of args.embeddingIds) {
       const embedding = await ctx.db.get(id);
       if (embedding !== null) {
-        embeddings.push(embedding);
+        embeddings.push(embedding as Doc<"noteEmbeddings">);
       }
     }
 
@@ -106,11 +107,11 @@ export const fetchNotesByEmbeddingIds = internalQuery({
       ...new Set(embeddings.map((embedding) => embedding.noteId)),
     ];
 
-    const results = [];
+    const results: Array<Doc<"notes">> = [];
     for (const id of uniqueNoteIds) {
       const note = await ctx.db.get(id);
       if (note !== null) {
-        results.push(note);
+        results.push(note as Doc<"notes">);
       }
     }
 

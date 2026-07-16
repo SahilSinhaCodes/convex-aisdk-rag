@@ -43,21 +43,16 @@ export const findRelevantNotes = internalAction({
   handler: async (ctx, args): Promise<Array<Doc<"notes">>> => {
     const embedding = await generateEmbedding(args.query);
 
+    // Vector searches are strictly action context utilities
     const results = await ctx.vectorSearch("noteEmbeddings", "by_embedding", {
       vector: embedding,
       limit: 16,
       filter: (q) => q.eq("userId", args.userId),
     });
 
-    console.log("vector search results:", results);
+    const embeddingIds = results.map((result) => result._id);
 
-    // FIX: Lowered the threshold to 0.01 to allow Gemini embeddings to pass through safely
-    const resultsAboveThreshold = results.filter(
-      (result) => result._score > 0.01
-    );
-
-    const embeddingIds = resultsAboveThreshold.map((result) => result._id);
-
+    // Offload database object hydration to internal queries
     const notes = await ctx.runQuery(internal.notes.fetchNotesByEmbeddingIds, {
       embeddingIds,
     });
