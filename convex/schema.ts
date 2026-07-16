@@ -20,7 +20,7 @@ const schema = defineSchema({
     .index("by_noteId", ["noteId"])
     .vectorIndex("by_embedding", {
       vectorField: "embedding",
-      dimensions: 3072, // Updated to 3072 for Google gemini-embedding-001
+      dimensions: 3072,
       filterFields: ["userId"],
     }),
 });

@@ -128,7 +128,7 @@ export function SigninForm() {
           className="w-full text-sm text-muted-foreground cursor-pointer"
           onClick={() => {
             setStep(step === "signIn" ? "signUp" : "signIn");
-            form.reset(); // Reset form errors and values when switching modes
+            form.reset(); 
           }}
         >
           {step === "signIn"

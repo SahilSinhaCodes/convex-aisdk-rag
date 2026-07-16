@@ -194,7 +194,7 @@ function ChatMessage({ message }: ChatMessageProps) {
             AI Assistant
           </div>
         )}
-        {/* Fixed: Duplicated rendering row removed here */}
+
         {currentStep?.type === "text" && (
           <Markdown>{currentStep.text}</Markdown>
         )}

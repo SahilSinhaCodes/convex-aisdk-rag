@@ -23,7 +23,7 @@ http.route({
     const lastMessages = messages.slice(-10);
     const modelMessages = convertToModelMessages(lastMessages);
 
-    // 1. DIRECT EXTRACTION: Grab what the user just typed
+
     let queryText = "search";
     const lastUserMessage = messages.filter((m) => m.role === "user").pop();
 
@@ -38,7 +38,7 @@ http.route({
 
     console.log(`\n🔍 DIRECT PIPELINE SEARCH | Query: "${queryText}"`);
 
-    // 2. PRE-RETRIEVAL: Search the database BEFORE calling the LLM
+
     let notesContext = "No relevant notes found.";
     try {
       const relevantNotes = await ctx.runAction(
@@ -57,7 +57,7 @@ http.route({
       notesContext = "Error: Could not search database.";
     }
 
-    // 3. ONE-SHOT STREAM: Feed the database results directly into the System Prompt
+
     const result = streamText({
       model: groq("openai/gpt-oss-120b"),
       system: `
@@ -73,7 +73,7 @@ http.route({
           -----------------------
       `,
       messages: modelMessages,
-      // NO TOOLS! We bypass the Vercel/Groq array serialization crash entirely.
+
       onError(error) {
         console.error("streamText error:", error);
       },

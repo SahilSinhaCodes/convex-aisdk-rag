@@ -43,7 +43,7 @@ export const findRelevantNotes = internalAction({
   handler: async (ctx, args): Promise<Array<Doc<"notes">>> => {
     const embedding = await generateEmbedding(args.query);
 
-    // Vector searches are strictly action context utilities
+
     const results = await ctx.vectorSearch("noteEmbeddings", "by_embedding", {
       vector: embedding,
       limit: 16,
@@ -52,7 +52,7 @@ export const findRelevantNotes = internalAction({
 
     const embeddingIds = results.map((result) => result._id);
 
-    // Offload database object hydration to internal queries
+
     const notes = await ctx.runQuery(internal.notes.fetchNotesByEmbeddingIds, {
       embeddingIds,
     });
