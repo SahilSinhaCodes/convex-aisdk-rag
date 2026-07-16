@@ -29,8 +29,9 @@ http.route({
 
     if (lastUserMessage) {
       if (Array.isArray(lastUserMessage.parts)) {
-        const textPart = lastUserMessage.parts.find((p: any) => p.type === "text");
-        if (textPart) queryText = textPart.text;
+        const textPart = lastUserMessage.parts.find((p) => p.type === "text");
+        // TS FIX: Cast textPart to any to bypass the strict UIMessagePart union type in Vercel's build step
+        if (textPart) queryText = (textPart as any).text;
       } else if (typeof lastUserMessage.content === "string") {
         queryText = lastUserMessage.content;
       }
