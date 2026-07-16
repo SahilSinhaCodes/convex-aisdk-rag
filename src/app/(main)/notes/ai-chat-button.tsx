@@ -200,8 +200,8 @@ function ChatMessage({ message }: ChatMessageProps) {
         )}
         {currentStep?.type?.startsWith("tool-") && (
           <div className="italic animate-pulse">
-            {/* TS FIX: Cast to any to bypass strict UIMessagePart union types */}
-            {(currentStep as any).state === "output-available"
+            {/* TS/ESLint FIX: Safely cast to an object with an optional state property */}
+            {(currentStep as { state?: string }).state === "output-available"
               ? "Got results, thinking..."
               : "Searching notes..."}
           </div>
